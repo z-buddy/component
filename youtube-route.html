@@ -41,6 +41,71 @@
 
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
+  const YOUTUBE_MUSIC_NEGATIVE_QUERY_WORDS = [
+    "MV",
+    "PV",
+    "official",
+    "LIVE",
+    "公式",
+    "ライブ",
+    "ミュージックビデオ",
+    "プロモーションビデオ",
+    "music video",
+    "official video",
+    "dance",
+    "choreography",
+    "reaction",
+    "teaser",
+    "trailer",
+    "interview",
+    "shorts",
+    "karaoke",
+    "カラオケ"
+  ];
+
+  const YOUTUBE_MUSIC_REJECT_PATTERNS = [
+    /\bofficial\s+(music\s+)?video\b/i,
+    /\bofficial\s+mv\b/i,
+    /\bmusic\s+video\b/i,
+    /\bm\/v\b/i,
+    /\bmv\b/i,
+    /\bpv\b/i,
+    /\bpromotional\s+video\b/i,
+    /ミュージックビデオ/i,
+    /プロモーションビデオ/i,
+    /\blive\b/i,
+    /ライブ/i,
+    /\bperformance\b/i,
+    /パフォーマンス/i,
+    /\bdance\s+practice\b/i,
+    /\bdance\b/i,
+    /踊ってみた/i,
+    /\bchoreography\b/i,
+    /\breaction\b/i,
+    /リアクション/i,
+    /\btrailer\b/i,
+    /\bteaser\b/i,
+    /\binterview\b/i,
+    /インタビュー/i,
+    /\bshorts\b/i,
+    /#shorts/i,
+    /\bkaraoke\b/i,
+    /カラオケ/i,
+    /\blyrics?\s+video\b/i,
+    /歌詞動画/i
+  ];
+
+  const YOUTUBE_MUSIC_PREFERRED_PATTERNS = [
+    /\btopic\b/i,
+    /provided\s+to\s+youtube/i,
+    /auto-?generated/i,
+    /\baudio\b/i,
+    /\bofficial\s+audio\b/i,
+    /\balbum\b/i,
+    /\bsingle\b/i,
+    /\brelease\b/i
+  ];
+
   let youtubeRoutePlayer = null;
   let youtubeRoutePlayerReady = false;
   let youtubeRoutePendingVideoId = "";
@@ -117,7 +182,8 @@
     const apiKey = String(data.apiKey || "").trim();
     const query = String(data.query || "").trim();
     const pageToken = String(data.pageToken || "").trim();
-    const maxResults = Math.max(1, Math.min(Number(data.maxResults || 25), 50));
+    const requestedMaxResults = Math.max(1, Math.min(Number(data.maxResults || 25), 50));
+    const apiMaxResults = 50;
 
     if (!apiKey) {
       sendYoutubeError("API KEY REQUIRED", requestId);
@@ -135,7 +201,7 @@
       let searchUrl =
         "https://www.googleapis.com/youtube/v3/search" +
         "?part=snippet" +
-        "&maxResults=" + encodeURIComponent(String(maxResults)) +
+        "&maxResults=" + encodeURIComponent(String(apiMaxResults)) +
         "&q=" + encodeURIComponent(topicQuery) +
         "&key=" + encodeURIComponent(apiKey);
 
@@ -151,18 +217,20 @@
       }
 
       const searchJson = await searchResponse.json();
-      const items = Array.isArray(searchJson.items) ? searchJson.items : [];
+      const rawItems = Array.isArray(searchJson.items) ? searchJson.items : [];
+      const filteredItems = filterYoutubeMusicSearchItems(rawItems);
 
-      const videoIds = items
+      const videoIds = filteredItems
         .filter((item) => item && item.id && item.id.kind === "youtube#video")
         .map((item) => item.id.videoId)
         .filter(Boolean);
 
       const durationMap = await fetchYoutubeDurations(apiKey, videoIds);
 
-      const results = items
+      const results = filteredItems
         .map((item) => normalizeYoutubeSearchItem(item, durationMap))
-        .filter(Boolean);
+        .filter(Boolean)
+        .slice(0, requestedMaxResults);
 
       window.parent.postMessage(
         {
@@ -179,6 +247,26 @@
       console.error(error);
       sendYoutubeError("YOUTUBE ROUTE ERROR", requestId);
     }
+  }
+
+  function filterYoutubeMusicSearchItems(rawItems) {
+    const items = Array.isArray(rawItems) ? rawItems : [];
+
+    const playlistItems = items
+      .filter((item) => item && item.id && item.id.kind === "youtube#playlist")
+      .filter((item) => !isRejectedYoutubeMusicItem(item))
+      .sort((a, b) => getYoutubeMusicScore(b) - getYoutubeMusicScore(a));
+
+    const preferredVideoItems = items
+      .filter((item) => item && item.id && item.id.kind === "youtube#video")
+      .filter((item) => !isRejectedYoutubeMusicItem(item))
+      .filter((item) => isPreferredYoutubeMusicItem(item))
+      .sort((a, b) => getYoutubeMusicScore(b) - getYoutubeMusicScore(a));
+
+    return [
+      ...playlistItems,
+      ...preferredVideoItems,
+    ];
   }
 
   function normalizeYoutubeSearchItem(item, durationMap) {
@@ -271,7 +359,8 @@
       }
 
       const json = await response.json();
-      const items = Array.isArray(json.items) ? json.items : [];
+      const rawItems = Array.isArray(json.items) ? json.items : [];
+      const items = rawItems.filter((item) => !isRejectedYoutubePlaylistItem(item));
 
       const videoIds = items
         .map((item) => {
@@ -464,11 +553,105 @@
       return "";
     }
 
-    if (/\b-\s*topic\b/i.test(raw)) {
-      return raw;
+    const topicQuery = /\b-\s*topic\b/i.test(raw)
+      ? raw
+      : raw + " - Topic";
+
+    const negativeQuery = YOUTUBE_MUSIC_NEGATIVE_QUERY_WORDS
+      .map((word) => "-" + String(word || "").trim())
+      .filter((word) => word.length > 1)
+      .join(" ");
+
+    return (topicQuery + " " + negativeQuery).trim();
+  }
+
+  function isRejectedYoutubeMusicItem(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const text = [
+      snippet.title || "",
+      snippet.channelTitle || "",
+      snippet.description || ""
+    ].join(" ");
+
+    return YOUTUBE_MUSIC_REJECT_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  function isRejectedYoutubePlaylistItem(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const statusText = String(snippet.title || "").toLowerCase();
+
+    if (
+      statusText === "deleted video" ||
+      statusText === "private video"
+    ) {
+      return true;
     }
 
-    return raw + " - Topic";
+    return isRejectedYoutubeMusicItem(item);
+  }
+
+  function isPreferredYoutubeMusicItem(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const text = [
+      snippet.title || "",
+      snippet.channelTitle || "",
+      snippet.description || ""
+    ].join(" ");
+
+    if (isYoutubeTopicChannel(item)) {
+      return true;
+    }
+
+    return YOUTUBE_MUSIC_PREFERRED_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  function isYoutubeTopicChannel(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const channelTitle = String(snippet.channelTitle || "");
+
+    return /\btopic\b/i.test(channelTitle);
+  }
+
+  function getYoutubeMusicScore(item) {
+    const id = item && item.id ? item.id : {};
+    const snippet = item && item.snippet ? item.snippet : {};
+    const text = [
+      snippet.title || "",
+      snippet.channelTitle || "",
+      snippet.description || ""
+    ].join(" ");
+
+    let score = 0;
+
+    if (id.kind === "youtube#playlist") {
+      score += 100;
+    }
+
+    if (isYoutubeTopicChannel(item)) {
+      score += 60;
+    }
+
+    if (/\btopic\b/i.test(text)) {
+      score += 40;
+    }
+
+    if (/\balbum\b/i.test(text)) {
+      score += 30;
+    }
+
+    if (/provided\s+to\s+youtube/i.test(text)) {
+      score += 25;
+    }
+
+    if (/auto-?generated/i.test(text)) {
+      score += 20;
+    }
+
+    if (/\baudio\b/i.test(text)) {
+      score += 15;
+    }
+
+    return score;
   }
 
   async function fetchYoutubeDurations(apiKey, videoIds) {
