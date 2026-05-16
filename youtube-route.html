@@ -97,30 +97,22 @@
     }
 
     if (data.type === "ZBUDDY_YOUTUBE_SEEK") {
-      const seconds = Number(data.seconds || 0);
-
-      if (
-        youtubeRoutePlayerReady &&
-        youtubeRoutePlayer &&
-        Number.isFinite(seconds) &&
-        seconds >= 0
-      ) {
-        try {
-          youtubeRoutePlayer.seekTo(seconds, true);
-          sendYoutubeProgress();
-        } catch (error) {
-          console.error(error);
-          sendYoutubeError("YOUTUBE SEEK ERROR", "");
-        }
-      }
-
+      seekYoutubeRouteVideo(data.seconds);
       return;
     }
 
-    if (data.type !== "ZBUDDY_YOUTUBE_SEARCH") {
+    if (data.type === "ZBUDDY_YOUTUBE_PLAYLIST_ITEMS") {
+      await handleYoutubePlaylistItems(data);
       return;
     }
 
+    if (data.type === "ZBUDDY_YOUTUBE_SEARCH") {
+      await handleYoutubeSearch(data);
+      return;
+    }
+  });
+
+  async function handleYoutubeSearch(data) {
     const requestId = String(data.requestId || "");
     const apiKey = String(data.apiKey || "").trim();
     const query = String(data.query || "").trim();
@@ -143,7 +135,6 @@
       let searchUrl =
         "https://www.googleapis.com/youtube/v3/search" +
         "?part=snippet" +
-        "&type=video" +
         "&maxResults=" + encodeURIComponent(String(maxResults)) +
         "&q=" + encodeURIComponent(topicQuery) +
         "&key=" + encodeURIComponent(apiKey);
@@ -160,37 +151,18 @@
       }
 
       const searchJson = await searchResponse.json();
+      const items = Array.isArray(searchJson.items) ? searchJson.items : [];
 
-      const baseResults = (searchJson.items || [])
-        .filter((item) => item && item.id && item.id.kind === "youtube#video" && item.id.videoId)
-        .map((item) => {
-          const videoId = item.id.videoId;
-          const snippet = item.snippet || {};
-          const thumbnails = snippet.thumbnails || {};
-          const medium = thumbnails.medium || thumbnails.default || {};
+      const videoIds = items
+        .filter((item) => item && item.id && item.id.kind === "youtube#video")
+        .map((item) => item.id.videoId)
+        .filter(Boolean);
 
-          return {
-            videoId: videoId,
-            title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
-            channelTitle: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "")),
-            thumbnailUrl: medium.url || "",
-            duration: "--:--",
-            source: "youtubeMusic",
-            categoryId: "topic",
-            url: videoId ? "https://www.youtube.com/watch?v=" + videoId : "",
-          };
-        })
-        .filter((item) => item.videoId);
+      const durationMap = await fetchYoutubeDurations(apiKey, videoIds);
 
-      const durationMap = await fetchYoutubeDurations(
-        apiKey,
-        baseResults.map((item) => item.videoId),
-      );
-
-      const results = baseResults.map((item) => ({
-        ...item,
-        duration: durationMap[item.videoId] || "--:--",
-      }));
+      const results = items
+        .map((item) => normalizeYoutubeSearchItem(item, durationMap))
+        .filter(Boolean);
 
       window.parent.postMessage(
         {
@@ -207,7 +179,157 @@
       console.error(error);
       sendYoutubeError("YOUTUBE ROUTE ERROR", requestId);
     }
-  });
+  }
+
+  function normalizeYoutubeSearchItem(item, durationMap) {
+    const id = item && item.id ? item.id : {};
+    const snippet = item && item.snippet ? item.snippet : {};
+    const thumbnails = snippet.thumbnails || {};
+    const medium = thumbnails.medium || thumbnails.default || {};
+    const kind = id.kind || "";
+
+    if (kind === "youtube#playlist") {
+      const playlistId = id.playlistId || "";
+
+      if (!playlistId) {
+        return null;
+      }
+
+      return {
+        itemKind: "youtube#playlist",
+        itemType: "ALBUM",
+        source: "youtubeAlbum",
+        playlistId: playlistId,
+        videoId: "",
+        title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
+        artist: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        channelTitle: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        thumbnailUrl: medium.url || "",
+        duration: "--:--",
+        url: "https://www.youtube.com/playlist?list=" + playlistId,
+      };
+    }
+
+    if (kind === "youtube#video") {
+      const videoId = id.videoId || "";
+
+      if (!videoId) {
+        return null;
+      }
+
+      return {
+        itemKind: "youtube#video",
+        itemType: "SONG",
+        source: "youtubeMusic",
+        playlistId: "",
+        videoId: videoId,
+        title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
+        artist: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        channelTitle: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        thumbnailUrl: medium.url || "",
+        duration: durationMap[videoId] || "--:--",
+        url: "https://www.youtube.com/watch?v=" + videoId,
+      };
+    }
+
+    return null;
+  }
+
+  async function handleYoutubePlaylistItems(data) {
+    const requestId = String(data.requestId || "").trim();
+    const apiKey = String(data.apiKey || "").trim();
+    const playlistId = String(data.playlistId || "").trim();
+    const pageToken = String(data.pageToken || "").trim();
+
+    if (!apiKey) {
+      sendYoutubeError("API KEY REQUIRED", requestId);
+      return;
+    }
+
+    if (!playlistId) {
+      sendYoutubeError("PLAYLIST ID REQUIRED", requestId);
+      return;
+    }
+
+    try {
+      let url =
+        "https://www.googleapis.com/youtube/v3/playlistItems" +
+        "?part=snippet" +
+        "&maxResults=50" +
+        "&playlistId=" + encodeURIComponent(playlistId) +
+        "&key=" + encodeURIComponent(apiKey);
+
+      if (pageToken) {
+        url += "&pageToken=" + encodeURIComponent(pageToken);
+      }
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        sendYoutubeError("YOUTUBE PLAYLIST FAILED", requestId);
+        return;
+      }
+
+      const json = await response.json();
+      const items = Array.isArray(json.items) ? json.items : [];
+
+      const videoIds = items
+        .map((item) => {
+          const snippet = item && item.snippet ? item.snippet : {};
+          const resourceId = snippet.resourceId || {};
+          return resourceId.videoId || "";
+        })
+        .filter(Boolean);
+
+      const durationMap = await fetchYoutubeDurations(apiKey, videoIds);
+
+      const results = items
+        .map((item) => {
+          const snippet = item && item.snippet ? item.snippet : {};
+          const resourceId = snippet.resourceId || {};
+          const videoId = resourceId.videoId || "";
+          const thumbnails = snippet.thumbnails || {};
+          const medium = thumbnails.medium || thumbnails.default || {};
+
+          if (!videoId) {
+            return null;
+          }
+
+          return {
+            itemKind: "youtube#video",
+            itemType: "SONG",
+            source: "youtubeMusic",
+            playlistId: playlistId,
+            videoId: videoId,
+            title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
+            artist: cleanYoutubeTopicTitle(
+              decodeHtml(snippet.videoOwnerChannelTitle || snippet.channelTitle || "YouTube"),
+            ),
+            channelTitle: cleanYoutubeTopicTitle(
+              decodeHtml(snippet.videoOwnerChannelTitle || snippet.channelTitle || "YouTube"),
+            ),
+            thumbnailUrl: medium.url || "",
+            duration: durationMap[videoId] || "--:--",
+            url: "https://www.youtube.com/watch?v=" + videoId,
+          };
+        })
+        .filter(Boolean);
+
+      window.parent.postMessage(
+        {
+          type: "ZBUDDY_YOUTUBE_PLAYLIST_RESULTS",
+          requestId: requestId,
+          playlistId: playlistId,
+          nextPageToken: json.nextPageToken || "",
+          results: results,
+        },
+        "*",
+      );
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE PLAYLIST ERROR", requestId);
+    }
+  }
 
   function playYoutubeRouteVideo(videoId) {
     const id = String(videoId || "").trim();
@@ -259,6 +381,25 @@
     } catch (error) {
       console.warn(error);
       sendYoutubePlayerState(0);
+    }
+  }
+
+  function seekYoutubeRouteVideo(seconds) {
+    const target = Number(seconds || 0);
+
+    if (
+      youtubeRoutePlayerReady &&
+      youtubeRoutePlayer &&
+      Number.isFinite(target) &&
+      target >= 0
+    ) {
+      try {
+        youtubeRoutePlayer.seekTo(target, true);
+        sendYoutubeProgress();
+      } catch (error) {
+        console.error(error);
+        sendYoutubeError("YOUTUBE SEEK ERROR", "");
+      }
     }
   }
 
@@ -337,31 +478,35 @@
       return {};
     }
 
-    const url =
-      "https://www.googleapis.com/youtube/v3/videos" +
-      "?part=contentDetails" +
-      "&id=" + encodeURIComponent(ids.join(",")) +
-      "&key=" + encodeURIComponent(apiKey);
+    try {
+      const url =
+        "https://www.googleapis.com/youtube/v3/videos" +
+        "?part=contentDetails" +
+        "&id=" + encodeURIComponent(ids.join(",")) +
+        "&key=" + encodeURIComponent(apiKey);
 
-    const response = await fetch(url);
+      const response = await fetch(url);
 
-    if (!response.ok) {
+      if (!response.ok) {
+        return {};
+      }
+
+      const json = await response.json();
+      const map = {};
+
+      (json.items || []).forEach((item) => {
+        const id = item && item.id ? item.id : "";
+        const duration = item && item.contentDetails ? item.contentDetails.duration : "";
+
+        if (id) {
+          map[id] = formatYoutubeDuration(duration);
+        }
+      });
+
+      return map;
+    } catch (error) {
       return {};
     }
-
-    const json = await response.json();
-    const map = {};
-
-    (json.items || []).forEach((item) => {
-      const id = item && item.id ? item.id : "";
-      const duration = item && item.contentDetails ? item.contentDetails.duration : "";
-
-      if (id) {
-        map[id] = formatYoutubeDuration(duration);
-      }
-    });
-
-    return map;
   }
 
   function formatYoutubeDuration(value) {
