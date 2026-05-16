@@ -16,12 +16,80 @@
       overflow: hidden;
       font-family: Inter, sans-serif, "Helvetica Neue", Arial;
     }
+
+    #youtubeRoutePlayerHost {
+      position: fixed;
+      left: -9999px;
+      top: -9999px;
+      width: 320px;
+      height: 180px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #youtubeRoutePlayer {
+      width: 320px;
+      height: 180px;
+    }
   </style>
 </head>
 <body>
+<div id="youtubeRoutePlayerHost">
+  <div id="youtubeRoutePlayer"></div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
 <script>
+  let youtubeRoutePlayer = null;
+  let youtubeRoutePlayerReady = false;
+  let youtubeRoutePendingVideoId = "";
+
+  window.onYouTubeIframeAPIReady = function () {
+    youtubeRoutePlayer = new YT.Player("youtubeRoutePlayer", {
+      width: "320",
+      height: "180",
+      videoId: "",
+      playerVars: {
+        autoplay: 0,
+        controls: 0,
+        playsinline: 1,
+        rel: 0,
+        modestbranding: 1,
+      },
+      events: {
+        onReady: function () {
+          youtubeRoutePlayerReady = true;
+
+          if (youtubeRoutePendingVideoId) {
+            playYoutubeRouteVideo(youtubeRoutePendingVideoId);
+            youtubeRoutePendingVideoId = "";
+          }
+        },
+        onStateChange: function (event) {
+          sendYoutubePlayerState(event.data);
+        },
+      },
+    });
+  };
+
   window.addEventListener("message", async (event) => {
     const data = event.data || {};
+
+    if (data.type === "ZBUDDY_YOUTUBE_PLAY") {
+      playYoutubeRouteVideo(data.videoId);
+      return;
+    }
+
+    if (data.type === "ZBUDDY_YOUTUBE_PAUSE") {
+      pauseYoutubeRouteVideo();
+      return;
+    }
+
+    if (data.type === "ZBUDDY_YOUTUBE_STOP") {
+      stopYoutubeRouteVideo();
+      return;
+    }
 
     if (data.type !== "ZBUDDY_YOUTUBE_SEARCH") {
       return;
@@ -114,6 +182,70 @@
       sendYoutubeError("YOUTUBE ROUTE ERROR", requestId);
     }
   });
+
+  function playYoutubeRouteVideo(videoId) {
+    const id = String(videoId || "").trim();
+
+    if (!id) {
+      return;
+    }
+
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      youtubeRoutePendingVideoId = id;
+      return;
+    }
+
+    try {
+      youtubeRoutePlayer.loadVideoById(id);
+      sendYoutubePlayerState(1);
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE PLAY ERROR", "");
+    }
+  }
+
+  function pauseYoutubeRouteVideo() {
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      sendYoutubePlayerState(2);
+      return;
+    }
+
+    try {
+      youtubeRoutePlayer.pauseVideo();
+      sendYoutubePlayerState(2);
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE PAUSE ERROR", "");
+    }
+  }
+
+  function stopYoutubeRouteVideo() {
+    youtubeRoutePendingVideoId = "";
+
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      sendYoutubePlayerState(0);
+      return;
+    }
+
+    try {
+      youtubeRoutePlayer.stopVideo();
+      sendYoutubePlayerState(0);
+    } catch (error) {
+      console.warn(error);
+      sendYoutubePlayerState(0);
+    }
+  }
+
+  function sendYoutubePlayerState(state) {
+    window.parent.postMessage(
+      {
+        type: "ZBUDDY_YOUTUBE_PLAYER_STATE",
+        state: state,
+        isPlaying: state === 1 || state === 3,
+      },
+      "*",
+    );
+  }
 
   function buildYoutubeTopicQuery(query) {
     const raw = String(query || "").trim();
