@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Route</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #000000;
+      color: #00f3ff;
+      overflow: hidden;
+      font-family: Inter, sans-serif, "Helvetica Neue", Arial;
+    }
+  </style>
+</head>
+<body>
+<script>
+  window.addEventListener("message", async (event) => {
+    const data = event.data || {};
+
+    if (data.type !== "ZBUDDY_YOUTUBE_SEARCH") {
+      return;
+    }
+
+    const requestId = String(data.requestId || "");
+    const apiKey = String(data.apiKey || "").trim();
+    const query = String(data.query || "").trim();
+    const pageToken = String(data.pageToken || "").trim();
+    const maxResults = Math.max(1, Math.min(Number(data.maxResults || 25), 50));
+
+    if (!apiKey) {
+      sendYoutubeError("API KEY REQUIRED", requestId);
+      return;
+    }
+
+    if (!query) {
+      sendYoutubeError("QUERY REQUIRED", requestId);
+      return;
+    }
+
+    try {
+      const topicQuery = buildYoutubeTopicQuery(query);
+
+      let searchUrl =
+        "https://www.googleapis.com/youtube/v3/search" +
+        "?part=snippet" +
+        "&type=video" +
+        "&maxResults=" + encodeURIComponent(String(maxResults)) +
+        "&q=" + encodeURIComponent(topicQuery) +
+        "&key=" + encodeURIComponent(apiKey);
+
+      if (pageToken) {
+        searchUrl += "&pageToken=" + encodeURIComponent(pageToken);
+      }
+
+      const searchResponse = await fetch(searchUrl);
+
+      if (!searchResponse.ok) {
+        sendYoutubeError("YOUTUBE SEARCH FAILED", requestId);
+        return;
+      }
+
+      const searchJson = await searchResponse.json();
+
+      const baseResults = (searchJson.items || [])
+        .filter((item) => item && item.id && item.id.kind === "youtube#video" && item.id.videoId)
+        .map((item) => {
+          const videoId = item.id.videoId;
+          const snippet = item.snippet || {};
+          const thumbnails = snippet.thumbnails || {};
+          const medium = thumbnails.medium || thumbnails.default || {};
+
+          return {
+            videoId: videoId,
+            title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
+            channelTitle: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "")),
+            thumbnailUrl: medium.url || "",
+            duration: "--:--",
+            source: "youtubeMusic",
+            categoryId: "topic",
+            url: videoId ? "https://www.youtube.com/watch?v=" + videoId : "",
+          };
+        })
+        .filter((item) => item.videoId);
+
+      const durationMap = await fetchYoutubeDurations(
+        apiKey,
+        baseResults.map((item) => item.videoId),
+      );
+
+      const results = baseResults.map((item) => ({
+        ...item,
+        duration: durationMap[item.videoId] || "--:--",
+      }));
+
+      window.parent.postMessage(
+        {
+          type: "ZBUDDY_YOUTUBE_RESULTS",
+          requestId: requestId,
+          query: query,
+          topicQuery: topicQuery,
+          nextPageToken: searchJson.nextPageToken || "",
+          results: results,
+        },
+        "*",
+      );
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE ROUTE ERROR", requestId);
+    }
+  });
+
+  function buildYoutubeTopicQuery(query) {
+    const raw = String(query || "").trim();
+
+    if (!raw) {
+      return "";
+    }
+
+    if (/\b-\s*topic\b/i.test(raw)) {
+      return raw;
+    }
+
+    return raw + " - Topic";
+  }
+
+  async function fetchYoutubeDurations(apiKey, videoIds) {
+    const ids = Array.isArray(videoIds) ? videoIds.filter(Boolean) : [];
+
+    if (ids.length === 0) {
+      return {};
+    }
+
+    const url =
+      "https://www.googleapis.com/youtube/v3/videos" +
+      "?part=contentDetails" +
+      "&id=" + encodeURIComponent(ids.join(",")) +
+      "&key=" + encodeURIComponent(apiKey);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return {};
+    }
+
+    const json = await response.json();
+    const map = {};
+
+    (json.items || []).forEach((item) => {
+      const id = item && item.id ? item.id : "";
+      const duration = item && item.contentDetails ? item.contentDetails.duration : "";
+
+      if (id) {
+        map[id] = formatYoutubeDuration(duration);
+      }
+    });
+
+    return map;
+  }
+
+  function formatYoutubeDuration(value) {
+    const raw = String(value || "");
+    const match = raw.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+
+    if (!match) {
+      return "--:--";
+    }
+
+    const hours = Number(match[1] || 0);
+    const minutes = Number(match[2] || 0);
+    const seconds = Number(match[3] || 0);
+
+    if (hours > 0) {
+      return [
+        String(hours),
+        String(minutes).padStart(2, "0"),
+        String(seconds).padStart(2, "0"),
+      ].join(":");
+    }
+
+    return [
+      String(minutes),
+      String(seconds).padStart(2, "0"),
+    ].join(":");
+  }
+
+  function cleanYoutubeTopicTitle(value) {
+    return String(value || "")
+      .replace(/\s+-\s+Topic$/i, "")
+      .trim();
+  }
+
+  function decodeHtml(value) {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = String(value || "");
+    return textarea.value;
+  }
+
+  function sendYoutubeError(message, requestId) {
+    window.parent.postMessage(
+      {
+        type: "ZBUDDY_YOUTUBE_ERROR",
+        requestId: requestId || "",
+        message: message,
+      },
+      "*",
+    );
+  }
+</script>
+</body>
+</html>
