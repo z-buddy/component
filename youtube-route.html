@@ -91,6 +91,32 @@
       return;
     }
 
+    if (data.type === "ZBUDDY_YOUTUBE_GET_PROGRESS") {
+      sendYoutubeProgress();
+      return;
+    }
+
+    if (data.type === "ZBUDDY_YOUTUBE_SEEK") {
+      const seconds = Number(data.seconds || 0);
+
+      if (
+        youtubeRoutePlayerReady &&
+        youtubeRoutePlayer &&
+        Number.isFinite(seconds) &&
+        seconds >= 0
+      ) {
+        try {
+          youtubeRoutePlayer.seekTo(seconds, true);
+          sendYoutubeProgress();
+        } catch (error) {
+          console.error(error);
+          sendYoutubeError("YOUTUBE SEEK ERROR", "");
+        }
+      }
+
+      return;
+    }
+
     if (data.type !== "ZBUDDY_YOUTUBE_SEARCH") {
       return;
     }
@@ -242,6 +268,49 @@
         type: "ZBUDDY_YOUTUBE_PLAYER_STATE",
         state: state,
         isPlaying: state === 1 || state === 3,
+      },
+      "*",
+    );
+
+    sendYoutubeProgress();
+  }
+
+  function sendYoutubeProgress() {
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      window.parent.postMessage(
+        {
+          type: "ZBUDDY_YOUTUBE_PROGRESS",
+          currentTime: 0,
+          duration: 0,
+        },
+        "*",
+      );
+      return;
+    }
+
+    let currentTime = 0;
+    let duration = 0;
+
+    try {
+      currentTime =
+        typeof youtubeRoutePlayer.getCurrentTime === "function"
+          ? youtubeRoutePlayer.getCurrentTime()
+          : 0;
+
+      duration =
+        typeof youtubeRoutePlayer.getDuration === "function"
+          ? youtubeRoutePlayer.getDuration()
+          : 0;
+    } catch (error) {
+      currentTime = 0;
+      duration = 0;
+    }
+
+    window.parent.postMessage(
+      {
+        type: "ZBUDDY_YOUTUBE_PROGRESS",
+        currentTime: currentTime,
+        duration: duration,
       },
       "*",
     );
