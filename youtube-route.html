@@ -1,1122 +1,745 @@
-<!DOCTYPE html>
-<html lang="ja">
+<!doctype html>
+<html lang="en-US">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Z-BUDDY HOMIEZ - iTunes Search</title>
-
-    <link
-        href="https://fonts.googleapis.com/css2?family=Michroma&display=swap"
-        rel="stylesheet"
-    >
-
-    <style>
-        :root {
-            --bg: #000000;
-            --panel: #050505;
-            --line: #1f1f1f;
-            --line-strong: #333333;
-            --text: #f2f2f2;
-            --muted: #8b8b8b;
-            --accent: #00f3ff;
-            --control-bg: #111111;
-            --soft-accent: rgba(0, 243, 255, 0.045);
-        }
-
-        * {
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            width: 100%;
-            min-height: 100%;
-            margin: 0;
-            padding: 0;
-            background: var(--bg);
-            color: var(--text);
-            font-family: Inter, sans-serif, "Helvetica Neue", Arial;
-        }
-
-        body {
-            padding: 20px;
-            overflow-x: hidden;
-        }
-
-        button,
-        input {
-            font-family: Inter, sans-serif, "Helvetica Neue", Arial;
-        }
-
-        button {
-            cursor: pointer;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            overflow-x: hidden;
-        }
-
-        .top-title {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            min-height: 86px;
-            margin-bottom: 10px;
-            text-align: center;
-            border-bottom: 1px solid var(--line);
-        }
-
-        .top-title-main {
-            font-family: "Michroma", sans-serif;
-            color: var(--accent);
-            font-size: clamp(14px, 2vh, 20px);
-            letter-spacing: 0.22em;
-            line-height: 1.4;
-        }
-
-        .top-title-sub {
-            color: var(--muted);
-            font-size: 11px;
-            letter-spacing: 0.14em;
-            line-height: 1.6;
-        }
-
-        .search-area {
-            display: grid;
-            grid-template-columns:
-                minmax(0, 1fr)
-                minmax(0, 1fr)
-                minmax(0, 1fr)
-                30px;
-            gap: 10px;
-            align-items: center;
-            padding: 18px 0 18px;
-            background: transparent;
-            margin-bottom: 10px;
-            border-bottom: 1px solid var(--line);
-        }
-
-        .search-input {
-            width: 100%;
-            min-width: 0;
-            height: 30px;
-            padding: 0 14px;
-            border: 1px solid var(--line-strong);
-            border-radius: 999px;
-            background: var(--control-bg);
-            color: var(--text);
-            font-size: 13px;
-            outline: none;
-            box-sizing: border-box;
-        }
-
-        .search-input::placeholder {
-            color: var(--muted);
-            letter-spacing: 0.08em;
-        }
-
-        .search-input:focus {
-            border-color: var(--accent);
-            color: var(--text);
-        }
-
-        .search-btn {
-            width: 30px;
-            height: 30px;
-            min-width: 30px;
-            min-height: 30px;
-            padding: 0;
-            border: 1px solid var(--line-strong);
-            border-radius: 50%;
-            background: var(--control-bg);
-            color: var(--muted);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-sizing: border-box;
-        }
-
-        .search-btn:hover {
-            color: var(--accent);
-            border-color: var(--accent);
-        }
-
-        .search-btn svg {
-            width: 16px;
-            height: 16px;
-            display: block;
-            fill: currentColor;
-            pointer-events: none;
-        }
-
-        #status {
-            text-align: center;
-            color: var(--muted);
-            font-size: 12px;
-            letter-spacing: 0.12em;
-            margin: 18px 0;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .itunes-stage {
-            width: 100%;
-            overflow: hidden;
-            border-top: 1px solid var(--line);
-        }
-
-        .itunes-slider {
-            width: 200%;
-            display: grid;
-            grid-template-columns: 50% 50%;
-            transform: translateX(0%);
-            transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .itunes-slider.show-album {
-            transform: translateX(-50%);
-        }
-
-        .itunes-page {
-            min-width: 0;
-            padding: 0 0 40px;
-        }
-
-        .itunes-search-page,
-        .itunes-album-page {
-            width: 100%;
-        }
-
-        .itunes-search-page {
-            display: grid;
-            grid-template-rows: 44px minmax(0, 1fr);
-            min-height: 0;
-        }
-
-        .itunes-tabbar {
-            height: 44px;
-            min-height: 44px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            align-items: center;
-            border-bottom: 1px solid var(--line);
-            background: var(--bg);
-            position: sticky;
-            top: 0;
-            z-index: 5;
-        }
-
-        .itunes-tab-btn {
-            width: 100%;
-            height: 44px;
-            min-width: 0;
-            min-height: 44px;
-            padding: 0;
-            border: none;
-            border-radius: 0;
-            background: transparent;
-            color: var(--muted);
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.16em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-
-        .itunes-tab-btn:hover {
-            color: var(--accent);
-        }
-
-        .itunes-tab-btn.active {
-            color: var(--accent);
-        }
-
-        .itunes-tab-btn.active::after {
-            content: "";
-            position: absolute;
-            left: 18%;
-            right: 18%;
-            bottom: 0;
-            height: 2px;
-            background: var(--accent);
-        }
-
-        .itunes-tab-panel {
-            display: none;
-            min-height: 0;
-        }
-
-        .itunes-tab-panel.active {
-            display: block;
-        }
-
-        .itunes-list {
-            border-bottom: 1px solid var(--line);
-        }
-
-        .itunes-row {
-            min-height: 62px;
-            display: grid;
-            grid-template-columns: 52px minmax(0, 1fr) 82px;
-            gap: 10px;
-            align-items: center;
-            border-bottom: 1px solid var(--line);
-            background: var(--bg);
-            color: var(--text);
-            cursor: pointer;
-        }
-
-        .itunes-row:last-child {
-            border-bottom: none;
-        }
-
-        .itunes-row:hover {
-            background: var(--soft-accent);
-        }
-
-        .itunes-thumb {
-            width: 44px;
-            height: 44px;
-            border: 1px solid var(--line-strong);
-            border-radius: 8px;
-            background: var(--control-bg);
-            overflow: hidden;
-        }
-
-        .itunes-thumb img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .itunes-main {
-            min-width: 0;
-        }
-
-        .itunes-artist {
-            color: var(--muted);
-            font-size: 11px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 4px;
-        }
-
-        .itunes-title {
-            color: var(--text);
-            font-size: 13px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .itunes-meta,
-        .itunes-time {
-            color: var(--accent);
-            font-family: monospace;
-            font-size: 11px;
-            text-align: right;
-            white-space: nowrap;
-        }
-
-        .itunes-breadcrumb {
-            height: 44px;
-            display: grid;
-            grid-template-columns: 72px minmax(0, 1fr);
-            gap: 10px;
-            align-items: center;
-            border-bottom: 1px solid var(--line);
-            background: var(--bg);
-        }
-
-        .itunes-back-btn {
-            width: 72px;
-            height: 28px;
-            padding: 0;
-            border: 1px solid var(--line-strong);
-            border-radius: 999px;
-            background: transparent;
-            color: var(--muted);
-            font-size: 11px;
-            letter-spacing: 0.08em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .itunes-back-btn:hover {
-            color: var(--accent);
-            border-color: var(--accent);
-        }
-
-        .itunes-breadcrumb-title {
-            color: var(--accent);
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.12em;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .empty-list {
-            min-height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--muted);
-            font-size: 12px;
-            letter-spacing: 0.12em;
-            text-align: center;
-            line-height: 1.8;
-        }
-
-        .itunes-title-loading {
-            min-height: 160px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg);
-        }
-
-        .homiez-loading-spinner {
-            width: 34px;
-            height: 34px;
-            border: 2px solid rgba(255, 255, 255, 0.16);
-            border-top-color: var(--accent);
-            border-radius: 50%;
-            animation: homiezSpin 0.95s linear infinite;
-        }
-
-        @keyframes homiezSpin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-
-        /* -------------------- Transparent Scrollbar -------------------- */
-
-        html,
-        body {
-            scrollbar-width: thin;
-            scrollbar-color: transparent transparent;
-        }
-
-        html::-webkit-scrollbar,
-        body::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-            background: transparent;
-        }
-
-        html::-webkit-scrollbar-track,
-        body::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        html::-webkit-scrollbar-thumb,
-        body::-webkit-scrollbar-thumb {
-            background: transparent;
-            border: none;
-        }
-
-        html::-webkit-scrollbar-corner,
-        body::-webkit-scrollbar-corner {
-            background: transparent;
-        }
-
-        @media (max-width: 640px) {
-            body {
-                padding: 14px;
-            }
-
-            .top-title {
-                min-height: 76px;
-            }
-
-            .top-title-main {
-                font-size: 13px;
-                letter-spacing: 0.16em;
-            }
-
-            .top-title-sub {
-                font-size: 10px;
-                letter-spacing: 0.1em;
-            }
-
-            .search-area {
-                grid-template-columns: minmax(0, 1fr) 30px;
-                grid-template-rows: 30px 30px 30px;
-            }
-
-            #artistInput {
-                grid-column: 1 / 2;
-                grid-row: 1 / 2;
-            }
-
-            #albumInput {
-                grid-column: 1 / 2;
-                grid-row: 2 / 3;
-            }
-
-            #titleInput {
-                grid-column: 1 / 2;
-                grid-row: 3 / 4;
-            }
-
-            #searchBtn {
-                grid-column: 2 / 3;
-                grid-row: 1 / 4;
-                align-self: center;
-            }
-
-            .itunes-row {
-                grid-template-columns: 50px minmax(0, 1fr) 64px;
-                gap: 10px;
-            }
-
-            .itunes-thumb {
-                width: 42px;
-                height: 42px;
-            }
-
-            .itunes-artist {
-                font-size: 10px;
-            }
-
-            .itunes-title {
-                font-size: 12px;
-            }
-
-            .itunes-meta,
-            .itunes-time {
-                font-size: 10px;
-            }
-
-            .itunes-tab-btn {
-                font-size: 11px;
-                letter-spacing: 0.12em;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Route</title>
+  <style>
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #000000;
+      color: #00f3ff;
+      overflow: hidden;
+      font-family: Inter, sans-serif, "Helvetica Neue", Arial;
+    }
+
+    #youtubeRoutePlayerHost {
+      position: fixed;
+      left: -9999px;
+      top: -9999px;
+      width: 320px;
+      height: 180px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #youtubeRoutePlayer {
+      width: 320px;
+      height: 180px;
+    }
+  </style>
 </head>
-
 <body>
-
-<div class="container">
-    <div class="top-title">
-        <div class="top-title-main">Z-BUDDY HOMIEZ</div>
-        <div class="top-title-sub">MUSIC SEARCH</div>
-    </div>
-
-    <div class="search-area">
-        <input
-            type="text"
-            id="artistInput"
-            class="search-input"
-            placeholder="ARTIST"
-            spellcheck="false"
-        >
-
-        <input
-            type="text"
-            id="albumInput"
-            class="search-input"
-            placeholder="ALBUM"
-            spellcheck="false"
-        >
-
-        <input
-            type="text"
-            id="titleInput"
-            class="search-input"
-            placeholder="TITLE"
-            spellcheck="false"
-        >
-
-        <button
-            id="searchBtn"
-            class="search-btn"
-            type="button"
-            aria-label="Search"
-            title="Search"
-        >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M9.5 4.5a5 5 0 0 1 3.95 8.06l5 5a1 1 0 0 1-1.41 1.41l-5-5A5 5 0 1 1 9.5 4.5m0 2a3 3 0 1 0 0 6a3 3 0 0 0 0-6Z"></path>
-            </svg>
-        </button>
-    </div>
-
-    <div id="status" class="hidden">検索中...</div>
-
-    <section id="itunesStage" class="itunes-stage">
-        <div id="itunesSlider" class="itunes-slider">
-
-            <section class="itunes-page itunes-search-page">
-
-                <div class="itunes-tabbar">
-                    <button
-                        id="albumTabBtn"
-                        class="itunes-tab-btn active"
-                        type="button"
-                        data-tab="album"
-                    >
-                        ALBUM
-                    </button>
-
-                    <button
-                        id="singleTabBtn"
-                        class="itunes-tab-btn"
-                        type="button"
-                        data-tab="single"
-                    >
-                        SINGLE
-                    </button>
-                </div>
-
-                <div id="albumPanel" class="itunes-tab-panel active">
-                    <div id="albumResults" class="itunes-list">
-                        <div class="empty-list">SEARCH FIRST</div>
-                    </div>
-                </div>
-
-                <div id="singlePanel" class="itunes-tab-panel">
-                    <div id="singleResults" class="itunes-list">
-                        <div class="empty-list">SEARCH FIRST</div>
-                    </div>
-                </div>
-
-            </section>
-
-            <section class="itunes-page itunes-album-page">
-                <div class="itunes-breadcrumb">
-                    <button id="albumBackBtn" class="itunes-back-btn" type="button">
-                        / BACK
-                    </button>
-
-                    <div id="albumBreadcrumbTitle" class="itunes-breadcrumb-title">
-                        ALBUM
-                    </div>
-                </div>
-
-                <div id="albumTrackResults" class="itunes-list">
-                    <div class="empty-list">SELECT ALBUM</div>
-                </div>
-            </section>
-
-        </div>
-    </section>
+<div id="youtubeRoutePlayerHost">
+  <div id="youtubeRoutePlayer"></div>
 </div>
 
+<script src="https://www.youtube.com/iframe_api"></script>
 <script>
-    const artistInput = document.getElementById('artistInput');
-    const albumInput = document.getElementById('albumInput');
-    const titleInput = document.getElementById('titleInput');
-    const searchBtn = document.getElementById('searchBtn');
-    const statusDiv = document.getElementById('status');
+  const YOUTUBE_MUSIC_NEGATIVE_QUERY_WORDS = [
+    "MV",
+    "PV",
+    "official",
+    "LIVE",
+    "公式",
+    "ライブ",
+    "ミュージックビデオ",
+    "プロモーションビデオ",
+    "music video",
+    "official video",
+    "dance",
+    "choreography",
+    "reaction",
+    "teaser",
+    "trailer",
+    "interview",
+    "shorts",
+    "karaoke",
+    "カラオケ"
+  ];
 
-    const itunesStage = document.getElementById('itunesStage');
-    const itunesSlider = document.getElementById('itunesSlider');
-    const albumResults = document.getElementById('albumResults');
-    const singleResults = document.getElementById('singleResults');
-    const albumTrackResults = document.getElementById('albumTrackResults');
-    const albumBackBtn = document.getElementById('albumBackBtn');
-    const albumBreadcrumbTitle = document.getElementById('albumBreadcrumbTitle');
+  const YOUTUBE_MUSIC_REJECT_PATTERNS = [
+    /\bofficial\s+(music\s+)?video\b/i,
+    /\bofficial\s+mv\b/i,
+    /\bmusic\s+video\b/i,
+    /\bm\/v\b/i,
+    /\bmv\b/i,
+    /\bpv\b/i,
+    /\bpromotional\s+video\b/i,
+    /ミュージックビデオ/i,
+    /プロモーションビデオ/i,
+    /\blive\b/i,
+    /ライブ/i,
+    /\bperformance\b/i,
+    /パフォーマンス/i,
+    /\bdance\s+practice\b/i,
+    /\bdance\b/i,
+    /踊ってみた/i,
+    /\bchoreography\b/i,
+    /\breaction\b/i,
+    /リアクション/i,
+    /\btrailer\b/i,
+    /\bteaser\b/i,
+    /\binterview\b/i,
+    /インタビュー/i,
+    /\bshorts\b/i,
+    /#shorts/i,
+    /\bkaraoke\b/i,
+    /カラオケ/i,
+    /\blyrics?\s+video\b/i,
+    /歌詞動画/i
+  ];
 
-    const albumTabBtn = document.getElementById('albumTabBtn');
-    const singleTabBtn = document.getElementById('singleTabBtn');
-    const albumPanel = document.getElementById('albumPanel');
-    const singlePanel = document.getElementById('singlePanel');
+  const YOUTUBE_MUSIC_PREFERRED_PATTERNS = [
+    /\btopic\b/i,
+    /provided\s+to\s+youtube/i,
+    /auto-?generated/i,
+    /\baudio\b/i,
+    /\bofficial\s+audio\b/i,
+    /\balbum\b/i,
+    /\bsingle\b/i,
+    /\brelease\b/i
+  ];
 
-    let currentAlbumForSelection = null;
+  let youtubeRoutePlayer = null;
+  let youtubeRoutePlayerReady = false;
+  let youtubeRoutePendingVideoId = "";
 
-    searchBtn.addEventListener('click', searchMusic);
+  window.onYouTubeIframeAPIReady = function () {
+    youtubeRoutePlayer = new YT.Player("youtubeRoutePlayer", {
+      width: "320",
+      height: "180",
+      videoId: "",
+      playerVars: {
+        autoplay: 0,
+        controls: 0,
+        playsinline: 1,
+        rel: 0,
+        modestbranding: 1,
+      },
+      events: {
+        onReady: function () {
+          youtubeRoutePlayerReady = true;
 
-    window.addEventListener('message', (event) => {
-        const data = event.data || {};
-
-        if (data.type !== 'ZBUDDY_ITUNES_SEARCH') {
-            return;
-        }
-
-        const artist = String(data.artist || '').trim();
-        const album = String(data.album || '').trim();
-        const title = String(data.title || data.query || '').trim();
-
-        if (artistInput) {
-            artistInput.value = artist;
-        }
-
-        if (albumInput) {
-            albumInput.value = album;
-        }
-
-        if (titleInput) {
-            titleInput.value = title;
-        }
-
-        searchMusic();
+          if (youtubeRoutePendingVideoId) {
+            playYoutubeRouteVideo(youtubeRoutePendingVideoId);
+            youtubeRoutePendingVideoId = "";
+          }
+        },
+        onStateChange: function (event) {
+          sendYoutubePlayerState(event.data);
+        },
+      },
     });
+  };
 
-    albumTabBtn.addEventListener('click', () => {
-        switchTab('album');
-    });
+  window.addEventListener("message", async (event) => {
+    const data = event.data || {};
 
-    singleTabBtn.addEventListener('click', () => {
-        switchTab('single');
-    });
+    if (data.type === "ZBUDDY_YOUTUBE_PLAY") {
+      playYoutubeRouteVideo(data.videoId);
+      return;
+    }
 
-    albumBackBtn.addEventListener('click', () => {
-        itunesSlider.classList.remove('show-album');
+    if (data.type === "ZBUDDY_YOUTUBE_PAUSE") {
+      pauseYoutubeRouteVideo();
+      return;
+    }
 
-        requestAnimationFrame(() => {
-            itunesStage.scrollIntoView({
-                block: 'start',
-                behavior: 'auto'
-            });
-        });
-    });
+    if (data.type === "ZBUDDY_YOUTUBE_STOP") {
+      stopYoutubeRouteVideo();
+      return;
+    }
 
-    async function searchMusic() {
-        const artistQuery = artistInput.value.trim();
-        const albumQuery = albumInput.value.trim();
-        const titleQuery = titleInput.value.trim();
+    if (data.type === "ZBUDDY_YOUTUBE_GET_PROGRESS") {
+      sendYoutubeProgress();
+      return;
+    }
 
-        if (!artistQuery && !albumQuery && !titleQuery) return;
+    if (data.type === "ZBUDDY_YOUTUBE_SEEK") {
+      seekYoutubeRouteVideo(data.seconds);
+      return;
+    }
 
-        itunesSlider.classList.remove('show-album');
-        switchTab('album');
+    if (data.type === "ZBUDDY_YOUTUBE_PLAYLIST_ITEMS") {
+      await handleYoutubePlaylistItems(data);
+      return;
+    }
 
-        albumResults.innerHTML = '<div class="empty-list">LOADING ALBUM...</div>';
-        singleResults.innerHTML = '<div class="empty-list">WAITING SINGLE...</div>';
-        albumTrackResults.innerHTML = '<div class="empty-list">SELECT ALBUM</div>';
-        albumBreadcrumbTitle.textContent = 'ALBUM';
+    if (data.type === "ZBUDDY_YOUTUBE_SEARCH") {
+      await handleYoutubeSearch(data);
+      return;
+    }
+  });
 
-        statusDiv.textContent = '検索中...';
-        statusDiv.classList.remove('hidden');
+  async function handleYoutubeSearch(data) {
+    const requestId = String(data.requestId || "");
+    const apiKey = String(data.apiKey || "").trim();
+    const query = String(data.query || "").trim();
+    const pageToken = String(data.pageToken || "").trim();
+    const requestedMaxResults = Math.max(1, Math.min(Number(data.maxResults || 25), 50));
+    const apiMaxResults = 50;
 
-        const regions = ['jp', 'us', 'kr', 'hk'];
+    if (!apiKey) {
+      sendYoutubeError("API KEY REQUIRED", requestId);
+      return;
+    }
 
-        try {
-            const albumSearch = buildAlbumSearch(artistQuery, albumQuery, titleQuery);
-            const singleSearch = buildSingleSearch(artistQuery, albumQuery, titleQuery);
+    if (!query) {
+      sendYoutubeError("QUERY REQUIRED", requestId);
+      return;
+    }
 
-            const albumPromises = regions.map(region =>
-                fetch(buildSearchUrl({
-                    term: albumSearch.term,
-                    country: region,
-                    entity: 'album',
-                    attribute: albumSearch.attribute
-                }))
-                    .then(res => res.json())
-                    .then(data => ({ region, data }))
-            );
+    try {
+      const topicQuery = buildYoutubeTopicQuery(query);
 
-            const albumArrays = await Promise.all(albumPromises);
-            const albumMap = new Map();
+      let searchUrl =
+        "https://www.googleapis.com/youtube/v3/search" +
+        "?part=snippet" +
+        "&maxResults=" + encodeURIComponent(String(apiMaxResults)) +
+        "&q=" + encodeURIComponent(topicQuery) +
+        "&key=" + encodeURIComponent(apiKey);
 
-            albumArrays.forEach(({ region, data }) => {
-                data.results.forEach(album => {
-                    if (!albumMap.has(album.collectionId)) {
-                        albumMap.set(album.collectionId, {
-                            ...album,
-                            sourceRegion: region
-                        });
-                    }
-                });
-            });
+      if (pageToken) {
+        searchUrl += "&pageToken=" + encodeURIComponent(pageToken);
+      }
 
-            const filteredAlbums = filterAlbums(
-                Array.from(albumMap.values()),
-                artistQuery,
-                albumQuery,
-                titleQuery
-            );
+      const searchResponse = await fetch(searchUrl);
 
-            displayAlbums(filteredAlbums);
+      if (!searchResponse.ok) {
+        sendYoutubeError("YOUTUBE SEARCH FAILED", requestId);
+        return;
+      }
 
-            singleResults.innerHTML = '<div class="empty-list">LOADING SINGLE...</div>';
+      const searchJson = await searchResponse.json();
+      const rawItems = Array.isArray(searchJson.items) ? searchJson.items : [];
+      const filteredItems = filterYoutubeMusicSearchItems(rawItems);
 
-            const singlePromises = regions.map(region =>
-                fetch(buildSearchUrl({
-                    term: singleSearch.term,
-                    country: region,
-                    entity: 'song',
-                    attribute: singleSearch.attribute
-                }))
-                    .then(res => res.json())
-                    .then(data => ({ region, data }))
-            );
+      const videoIds = filteredItems
+        .filter((item) => item && item.id && item.id.kind === "youtube#video")
+        .map((item) => item.id.videoId)
+        .filter(Boolean);
 
-            const singleArrays = await Promise.all(singlePromises);
-            const singleMap = new Map();
+      const durationMap = await fetchYoutubeDurations(apiKey, videoIds);
 
-            singleArrays.forEach(({ region, data }) => {
-                data.results.forEach(track => {
-                    if (!singleMap.has(track.trackId)) {
-                        singleMap.set(track.trackId, {
-                            ...track,
-                            sourceRegion: region
-                        });
-                    }
-                });
-            });
+      const results = filteredItems
+        .map((item) => normalizeYoutubeSearchItem(item, durationMap))
+        .filter(Boolean)
+        .slice(0, requestedMaxResults);
 
-            const filteredSingles = filterSingles(
-                Array.from(singleMap.values()),
-                artistQuery,
-                albumQuery,
-                titleQuery
-            );
+      window.parent.postMessage(
+        {
+          type: "ZBUDDY_YOUTUBE_RESULTS",
+          requestId: requestId,
+          query: query,
+          topicQuery: topicQuery,
+          nextPageToken: searchJson.nextPageToken || "",
+          results: results,
+        },
+        "*",
+      );
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE ROUTE ERROR", requestId);
+    }
+  }
 
-            displaySingles(filteredSingles);
+  function filterYoutubeMusicSearchItems(rawItems) {
+    const items = Array.isArray(rawItems) ? rawItems : [];
 
-            statusDiv.classList.add('hidden');
-        } catch (e) {
-            console.error(e);
-            statusDiv.textContent = 'エラーが発生しました。';
-            statusDiv.classList.remove('hidden');
-            albumResults.innerHTML = '<div class="empty-list">ALBUM ERROR</div>';
-            singleResults.innerHTML = '<div class="empty-list">SINGLE ERROR</div>';
+    const playlistItems = items
+      .filter((item) => item && item.id && item.id.kind === "youtube#playlist")
+      .filter((item) => !isRejectedYoutubeMusicItem(item))
+      .sort((a, b) => getYoutubeMusicScore(b) - getYoutubeMusicScore(a));
+
+    const preferredVideoItems = items
+      .filter((item) => item && item.id && item.id.kind === "youtube#video")
+      .filter((item) => !isRejectedYoutubeMusicItem(item))
+      .filter((item) => isPreferredYoutubeMusicItem(item))
+      .sort((a, b) => getYoutubeMusicScore(b) - getYoutubeMusicScore(a));
+
+    return [
+      ...playlistItems,
+      ...preferredVideoItems,
+    ];
+  }
+
+  function normalizeYoutubeSearchItem(item, durationMap) {
+    const id = item && item.id ? item.id : {};
+    const snippet = item && item.snippet ? item.snippet : {};
+    const thumbnails = snippet.thumbnails || {};
+    const medium = thumbnails.medium || thumbnails.default || {};
+    const kind = id.kind || "";
+
+    if (kind === "youtube#playlist") {
+      const playlistId = id.playlistId || "";
+
+      if (!playlistId) {
+        return null;
+      }
+
+      return {
+        itemKind: "youtube#playlist",
+        itemType: "ALBUM",
+        source: "youtubeAlbum",
+        playlistId: playlistId,
+        videoId: "",
+        title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
+        artist: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        channelTitle: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        thumbnailUrl: medium.url || "",
+        duration: "--:--",
+        url: "https://www.youtube.com/playlist?list=" + playlistId,
+      };
+    }
+
+    if (kind === "youtube#video") {
+      const videoId = id.videoId || "";
+
+      if (!videoId) {
+        return null;
+      }
+
+      return {
+        itemKind: "youtube#video",
+        itemType: "SONG",
+        source: "youtubeMusic",
+        playlistId: "",
+        videoId: videoId,
+        title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
+        artist: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        channelTitle: cleanYoutubeTopicTitle(decodeHtml(snippet.channelTitle || "YouTube")),
+        thumbnailUrl: medium.url || "",
+        duration: durationMap[videoId] || "--:--",
+        url: "https://www.youtube.com/watch?v=" + videoId,
+      };
+    }
+
+    return null;
+  }
+
+  async function handleYoutubePlaylistItems(data) {
+    const requestId = String(data.requestId || "").trim();
+    const apiKey = String(data.apiKey || "").trim();
+    const playlistId = String(data.playlistId || "").trim();
+    const pageToken = String(data.pageToken || "").trim();
+
+    if (!apiKey) {
+      sendYoutubeError("API KEY REQUIRED", requestId);
+      return;
+    }
+
+    if (!playlistId) {
+      sendYoutubeError("PLAYLIST ID REQUIRED", requestId);
+      return;
+    }
+
+    try {
+      let url =
+        "https://www.googleapis.com/youtube/v3/playlistItems" +
+        "?part=snippet" +
+        "&maxResults=50" +
+        "&playlistId=" + encodeURIComponent(playlistId) +
+        "&key=" + encodeURIComponent(apiKey);
+
+      if (pageToken) {
+        url += "&pageToken=" + encodeURIComponent(pageToken);
+      }
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        sendYoutubeError("YOUTUBE PLAYLIST FAILED", requestId);
+        return;
+      }
+
+      const json = await response.json();
+      const rawItems = Array.isArray(json.items) ? json.items : [];
+      const items = rawItems.filter((item) => !isRejectedYoutubePlaylistItem(item));
+
+      const videoIds = items
+        .map((item) => {
+          const snippet = item && item.snippet ? item.snippet : {};
+          const resourceId = snippet.resourceId || {};
+          return resourceId.videoId || "";
+        })
+        .filter(Boolean);
+
+      const durationMap = await fetchYoutubeDurations(apiKey, videoIds);
+
+      const results = items
+        .map((item) => {
+          const snippet = item && item.snippet ? item.snippet : {};
+          const resourceId = snippet.resourceId || {};
+          const videoId = resourceId.videoId || "";
+          const thumbnails = snippet.thumbnails || {};
+          const medium = thumbnails.medium || thumbnails.default || {};
+
+          if (!videoId) {
+            return null;
+          }
+
+          return {
+            itemKind: "youtube#video",
+            itemType: "SONG",
+            source: "youtubeMusic",
+            playlistId: playlistId,
+            videoId: videoId,
+            title: cleanYoutubeTopicTitle(decodeHtml(snippet.title || "")),
+            artist: cleanYoutubeTopicTitle(
+              decodeHtml(snippet.videoOwnerChannelTitle || snippet.channelTitle || "YouTube"),
+            ),
+            channelTitle: cleanYoutubeTopicTitle(
+              decodeHtml(snippet.videoOwnerChannelTitle || snippet.channelTitle || "YouTube"),
+            ),
+            thumbnailUrl: medium.url || "",
+            duration: durationMap[videoId] || "--:--",
+            url: "https://www.youtube.com/watch?v=" + videoId,
+          };
+        })
+        .filter(Boolean);
+
+      window.parent.postMessage(
+        {
+          type: "ZBUDDY_YOUTUBE_PLAYLIST_RESULTS",
+          requestId: requestId,
+          playlistId: playlistId,
+          nextPageToken: json.nextPageToken || "",
+          results: results,
+        },
+        "*",
+      );
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE PLAYLIST ERROR", requestId);
+    }
+  }
+
+  function playYoutubeRouteVideo(videoId) {
+    const id = String(videoId || "").trim();
+
+    if (!id) {
+      return;
+    }
+
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      youtubeRoutePendingVideoId = id;
+      return;
+    }
+
+    try {
+      youtubeRoutePlayer.loadVideoById(id);
+      sendYoutubePlayerState(1);
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE PLAY ERROR", "");
+    }
+  }
+
+  function pauseYoutubeRouteVideo() {
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      sendYoutubePlayerState(2);
+      return;
+    }
+
+    try {
+      youtubeRoutePlayer.pauseVideo();
+      sendYoutubePlayerState(2);
+    } catch (error) {
+      console.error(error);
+      sendYoutubeError("YOUTUBE PAUSE ERROR", "");
+    }
+  }
+
+  function stopYoutubeRouteVideo() {
+    youtubeRoutePendingVideoId = "";
+
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      sendYoutubePlayerState(0);
+      return;
+    }
+
+    try {
+      youtubeRoutePlayer.stopVideo();
+      sendYoutubePlayerState(0);
+    } catch (error) {
+      console.warn(error);
+      sendYoutubePlayerState(0);
+    }
+  }
+
+  function seekYoutubeRouteVideo(seconds) {
+    const target = Number(seconds || 0);
+
+    if (
+      youtubeRoutePlayerReady &&
+      youtubeRoutePlayer &&
+      Number.isFinite(target) &&
+      target >= 0
+    ) {
+      try {
+        youtubeRoutePlayer.seekTo(target, true);
+        sendYoutubeProgress();
+      } catch (error) {
+        console.error(error);
+        sendYoutubeError("YOUTUBE SEEK ERROR", "");
+      }
+    }
+  }
+
+  function sendYoutubePlayerState(state) {
+    window.parent.postMessage(
+      {
+        type: "ZBUDDY_YOUTUBE_PLAYER_STATE",
+        state: state,
+        isPlaying: state === 1 || state === 3,
+      },
+      "*",
+    );
+
+    sendYoutubeProgress();
+  }
+
+  function sendYoutubeProgress() {
+    if (!youtubeRoutePlayerReady || !youtubeRoutePlayer) {
+      window.parent.postMessage(
+        {
+          type: "ZBUDDY_YOUTUBE_PROGRESS",
+          currentTime: 0,
+          duration: 0,
+        },
+        "*",
+      );
+      return;
+    }
+
+    let currentTime = 0;
+    let duration = 0;
+
+    try {
+      currentTime =
+        typeof youtubeRoutePlayer.getCurrentTime === "function"
+          ? youtubeRoutePlayer.getCurrentTime()
+          : 0;
+
+      duration =
+        typeof youtubeRoutePlayer.getDuration === "function"
+          ? youtubeRoutePlayer.getDuration()
+          : 0;
+    } catch (error) {
+      currentTime = 0;
+      duration = 0;
+    }
+
+    window.parent.postMessage(
+      {
+        type: "ZBUDDY_YOUTUBE_PROGRESS",
+        currentTime: currentTime,
+        duration: duration,
+      },
+      "*",
+    );
+  }
+
+  function buildYoutubeTopicQuery(query) {
+    const raw = String(query || "").trim();
+
+    if (!raw) {
+      return "";
+    }
+
+    const topicQuery = /\b-\s*topic\b/i.test(raw)
+      ? raw
+      : raw + " - Topic";
+
+    const negativeQuery = YOUTUBE_MUSIC_NEGATIVE_QUERY_WORDS
+      .map((word) => "-" + String(word || "").trim())
+      .filter((word) => word.length > 1)
+      .join(" ");
+
+    return (topicQuery + " " + negativeQuery).trim();
+  }
+
+  function isRejectedYoutubeMusicItem(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const text = [
+      snippet.title || "",
+      snippet.channelTitle || "",
+      snippet.description || ""
+    ].join(" ");
+
+    return YOUTUBE_MUSIC_REJECT_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  function isRejectedYoutubePlaylistItem(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const statusText = String(snippet.title || "").toLowerCase();
+
+    if (
+      statusText === "deleted video" ||
+      statusText === "private video"
+    ) {
+      return true;
+    }
+
+    return isRejectedYoutubeMusicItem(item);
+  }
+
+  function isPreferredYoutubeMusicItem(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const text = [
+      snippet.title || "",
+      snippet.channelTitle || "",
+      snippet.description || ""
+    ].join(" ");
+
+    if (isYoutubeTopicChannel(item)) {
+      return true;
+    }
+
+    return YOUTUBE_MUSIC_PREFERRED_PATTERNS.some((pattern) => pattern.test(text));
+  }
+
+  function isYoutubeTopicChannel(item) {
+    const snippet = item && item.snippet ? item.snippet : {};
+    const channelTitle = String(snippet.channelTitle || "");
+
+    return /\btopic\b/i.test(channelTitle);
+  }
+
+  function getYoutubeMusicScore(item) {
+    const id = item && item.id ? item.id : {};
+    const snippet = item && item.snippet ? item.snippet : {};
+    const text = [
+      snippet.title || "",
+      snippet.channelTitle || "",
+      snippet.description || ""
+    ].join(" ");
+
+    let score = 0;
+
+    if (id.kind === "youtube#playlist") {
+      score += 100;
+    }
+
+    if (isYoutubeTopicChannel(item)) {
+      score += 60;
+    }
+
+    if (/\btopic\b/i.test(text)) {
+      score += 40;
+    }
+
+    if (/\balbum\b/i.test(text)) {
+      score += 30;
+    }
+
+    if (/provided\s+to\s+youtube/i.test(text)) {
+      score += 25;
+    }
+
+    if (/auto-?generated/i.test(text)) {
+      score += 20;
+    }
+
+    if (/\baudio\b/i.test(text)) {
+      score += 15;
+    }
+
+    return score;
+  }
+
+  async function fetchYoutubeDurations(apiKey, videoIds) {
+    const ids = Array.isArray(videoIds) ? videoIds.filter(Boolean) : [];
+
+    if (ids.length === 0) {
+      return {};
+    }
+
+    try {
+      const url =
+        "https://www.googleapis.com/youtube/v3/videos" +
+        "?part=contentDetails" +
+        "&id=" + encodeURIComponent(ids.join(",")) +
+        "&key=" + encodeURIComponent(apiKey);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        return {};
+      }
+
+      const json = await response.json();
+      const map = {};
+
+      (json.items || []).forEach((item) => {
+        const id = item && item.id ? item.id : "";
+        const duration = item && item.contentDetails ? item.contentDetails.duration : "";
+
+        if (id) {
+          map[id] = formatYoutubeDuration(duration);
         }
+      });
+
+      return map;
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function formatYoutubeDuration(value) {
+    const raw = String(value || "");
+    const match = raw.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+
+    if (!match) {
+      return "--:--";
     }
 
-    function buildSearchUrl({ term, country, entity, attribute }) {
-        const params = new URLSearchParams({
-            term: term,
-            country: country,
-            media: 'music',
-            entity: entity,
-            limit: '200'
-        });
+    const hours = Number(match[1] || 0);
+    const minutes = Number(match[2] || 0);
+    const seconds = Number(match[3] || 0);
 
-        if (attribute) {
-            params.set('attribute', attribute);
-        }
-
-        return `https://itunes.apple.com/search?${params.toString()}`;
+    if (hours > 0) {
+      return [
+        String(hours),
+        String(minutes).padStart(2, "0"),
+        String(seconds).padStart(2, "0"),
+      ].join(":");
     }
 
-    function buildAlbumSearch(artistQuery, albumQuery, titleQuery) {
-        if (albumQuery) {
-            return {
-                term: albumQuery,
-                attribute: 'albumTerm'
-            };
-        }
+    return [
+      String(minutes),
+      String(seconds).padStart(2, "0"),
+    ].join(":");
+  }
 
-        if (artistQuery) {
-            return {
-                term: artistQuery,
-                attribute: 'artistTerm'
-            };
-        }
+  function cleanYoutubeTopicTitle(value) {
+    return String(value || "")
+      .replace(/\s+-\s+Topic$/i, "")
+      .trim();
+  }
 
-        return {
-            term: titleQuery,
-            attribute: 'albumTerm'
-        };
-    }
+  function decodeHtml(value) {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = String(value || "");
+    return textarea.value;
+  }
 
-    function buildSingleSearch(artistQuery, albumQuery, titleQuery) {
-        if (titleQuery) {
-            return {
-                term: titleQuery,
-                attribute: 'songTerm'
-            };
-        }
-
-        if (albumQuery) {
-            return {
-                term: albumQuery,
-                attribute: 'albumTerm'
-            };
-        }
-
-        return {
-            term: artistQuery,
-            attribute: 'artistTerm'
-        };
-    }
-
-    function switchTab(tabName) {
-        const isAlbum = tabName === 'album';
-
-        albumTabBtn.classList.toggle('active', isAlbum);
-        singleTabBtn.classList.toggle('active', !isAlbum);
-
-        albumPanel.classList.toggle('active', isAlbum);
-        singlePanel.classList.toggle('active', !isAlbum);
-    }
-
-    function filterAlbums(albums, artistQuery, albumQuery, titleQuery) {
-        return albums.filter(album => {
-            const artistOk = !artistQuery || containsText(album.artistName, artistQuery);
-            const albumOk = !albumQuery || containsText(album.collectionName, albumQuery);
-            const titleOk = albumQuery || !titleQuery || containsText(album.collectionName, titleQuery);
-
-            return artistOk && albumOk && titleOk;
-        });
-    }
-
-    function filterSingles(tracks, artistQuery, albumQuery, titleQuery) {
-        return tracks.filter(track => {
-            const artistOk = !artistQuery || containsText(track.artistName, artistQuery);
-            const albumOk = !albumQuery || containsText(track.collectionName, albumQuery);
-            const titleOk = !titleQuery || containsText(track.trackName, titleQuery);
-
-            return artistOk && albumOk && titleOk;
-        });
-    }
-
-    function containsText(source, keyword) {
-        if (!keyword) return true;
-        if (!source) return false;
-
-        return normalizeText(source).includes(normalizeText(keyword));
-    }
-
-    function normalizeText(value) {
-        return String(value)
-            .toLowerCase()
-            .normalize('NFKC')
-            .replace(/\s+/g, '');
-    }
-
-    function displayAlbums(albums) {
-        albumResults.innerHTML = '';
-
-        if (!albums || albums.length === 0) {
-            albumResults.innerHTML = '<div class="empty-list">NO ALBUM FOUND</div>';
-            return;
-        }
-
-        albums.forEach(album => {
-            const trackCount = album.trackCount || '--';
-
-            const row = document.createElement('div');
-            row.className = 'itunes-row album-row';
-            row.innerHTML = `
-                <div class="itunes-thumb">
-                    <img src="${album.artworkUrl100 || ''}" alt="album">
-                </div>
-                <div class="itunes-main">
-                    <div class="itunes-artist">${escapeHtml(album.artistName || '')}</div>
-                    <div class="itunes-title">${escapeHtml(album.collectionName || '')}</div>
-                </div>
-                <div class="itunes-meta">(${trackCount}) TRACK</div>
-            `;
-
-            row.onclick = () => openAlbum(album);
-            albumResults.appendChild(row);
-        });
-    }
-
-    function sendItunesSelectionToParent(payload) {
-        const data = {
-            type: 'ZBUDDY_ITUNES_SELECT',
-            artist: payload.artist || '',
-            album: payload.album || '',
-            title: payload.title || '',
-            kind: payload.kind || 'track'
-        };
-
-        window.parent.postMessage(data, '*');
-    }
-
-    function displaySingles(tracks) {
-        singleResults.innerHTML = '';
-
-        if (!tracks || tracks.length === 0) {
-            singleResults.innerHTML = '<div class="empty-list">NO SINGLE FOUND</div>';
-            return;
-        }
-
-        tracks.forEach(track => {
-            const timeStr = formatMillis(track.trackTimeMillis);
-
-            const row = document.createElement('div');
-            row.className = 'itunes-row single-row';
-            row.innerHTML = `
-                <div class="itunes-thumb">
-                    <img src="${track.artworkUrl100 || ''}" alt="single">
-                </div>
-                <div class="itunes-main">
-                    <div class="itunes-artist">${escapeHtml(track.artistName || '')}</div>
-                    <div class="itunes-title">${escapeHtml(track.trackName || '')}</div>
-                </div>
-                <div class="itunes-time">${timeStr}</div>
-            `;
-
-            row.onclick = () => {
-                sendItunesSelectionToParent({
-                    artist: track.artistName || '',
-                    album: track.collectionName || '',
-                    title: track.trackName || '',
-                    kind: 'single'
-                });
-            };
-
-            singleResults.appendChild(row);
-        });
-    }
-
-    async function openAlbum(album) {
-        currentAlbumForSelection = album;
-        albumBreadcrumbTitle.textContent = album.collectionName || 'ALBUM';
-
-        albumTrackResults.innerHTML = `
-            <div class="itunes-title-loading">
-                <div class="homiez-loading-spinner"></div>
-            </div>
-        `;
-
-        itunesSlider.classList.add('show-album');
-        resetToAlbumTop();
-
-        try {
-            const lookupRegions = getLookupRegions(album);
-            const tracks = await fetchAlbumTracksWithFallback(album, lookupRegions);
-
-            displayAlbumTracks(tracks);
-        } catch (e) {
-            console.error(e);
-            albumTrackResults.innerHTML = '<div class="empty-list">ALBUM TRACK ERROR</div>';
-        }
-    }
-
-    function getLookupRegions(album) {
-        const candidates = [
-            album.sourceRegion,
-            'us',
-            'jp',
-            'kr',
-            'hk'
-        ];
-
-        return candidates.filter((region, index, self) =>
-            region && self.indexOf(region) === index
-        );
-    }
-
-    async function fetchAlbumTracksWithFallback(album, lookupRegions) {
-        for (const region of lookupRegions) {
-            try {
-                const lookupUrl = `https://itunes.apple.com/lookup?id=${album.collectionId}&country=${region}&media=music&entity=song&limit=200`;
-                const response = await fetch(lookupUrl);
-                const data = await response.json();
-                const tracks = extractTracksFromLookup(data);
-
-                console.log('LOOKUP REGION:', region);
-                console.log('LOOKUP RESULT COUNT:', data.resultCount);
-                console.log('LOOKUP TRACK COUNT:', tracks.length);
-
-                if (tracks.length > 0) {
-                    return tracks;
-                }
-            } catch (e) {
-                console.warn('LOOKUP FAILED:', region, e);
-            }
-        }
-
-        return [];
-    }
-
-    function extractTracksFromLookup(data) {
-        if (!data || !Array.isArray(data.results)) return [];
-
-        const strictTracks = data.results.filter(item =>
-            item.wrapperType === 'track' &&
-            item.kind === 'song' &&
-            item.trackName
-        );
-
-        if (strictTracks.length > 0) {
-            return strictTracks;
-        }
-
-        return data.results.filter(item =>
-            item.wrapperType === 'track' &&
-            item.trackName
-        );
-    }
-
-    function displayAlbumTracks(tracks) {
-        albumTrackResults.innerHTML = '';
-
-        if (!tracks || tracks.length === 0) {
-            albumTrackResults.innerHTML = '<div class="empty-list">NO TRACK FOUND</div>';
-            return;
-        }
-
-        tracks.forEach(track => {
-            const timeStr = formatMillis(track.trackTimeMillis);
-
-            const row = document.createElement('div');
-            row.className = 'itunes-row album-track-row';
-            row.innerHTML = `
-                <div class="itunes-thumb">
-                    <img src="${track.artworkUrl100 || ''}" alt="track">
-                </div>
-                <div class="itunes-main">
-                    <div class="itunes-artist">${escapeHtml(track.artistName || '')}</div>
-                    <div class="itunes-title">${escapeHtml(track.trackName || '')}</div>
-                </div>
-                <div class="itunes-time">${timeStr}</div>
-            `;
-
-            row.onclick = () => {
-                sendItunesSelectionToParent({
-                    artist: track.artistName || (currentAlbumForSelection ? currentAlbumForSelection.artistName : ''),
-                    album: track.collectionName || (currentAlbumForSelection ? currentAlbumForSelection.collectionName : ''),
-                    title: track.trackName || '',
-                    kind: 'album-track'
-                });
-            };
-
-            albumTrackResults.appendChild(row);
-        });
-    }
-
-    function resetToAlbumTop() {
-        albumTrackResults.scrollTop = 0;
-
-        requestAnimationFrame(() => {
-            itunesStage.scrollIntoView({
-                block: 'start',
-                behavior: 'auto'
-            });
-        });
-    }
-
-    function formatMillis(value) {
-        if (!value || Number.isNaN(Number(value))) return '--:--';
-
-        const minutes = Math.floor(value / 60000);
-        const seconds = Math.floor((value % 60000) / 1000);
-
-        return `${minutes}:${String(seconds).padStart(2, '0')}`;
-    }
-
-    function escapeHtml(value) {
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    }
+  function sendYoutubeError(message, requestId) {
+    window.parent.postMessage(
+      {
+        type: "ZBUDDY_YOUTUBE_ERROR",
+        requestId: requestId || "",
+        message: message,
+      },
+      "*",
+    );
+  }
 </script>
-
 </body>
 </html>
